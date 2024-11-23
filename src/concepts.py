@@ -22,7 +22,7 @@ class ConceptSet:
         self.omega = omega
 
         print('Constructing base concepts')
-
+        
     def match_superposition(self, neuron_activations, norm, inds, neuron_pair):
         """
         Updates scores for superpositions of neurons.
