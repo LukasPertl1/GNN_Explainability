@@ -20,82 +20,8 @@ class ConceptSet:
         self.neuron_concept_tracker = {}  # maps neuron to list of lists [name, score, concept]
         self.cur_length = 1  # current formula length
         self.omega = omega
-
-        print('Constructing base concepts')
         
-    def match_superposition(self, neuron_activations, norm, inds, neuron_pair):
-        """
-        Updates scores for superpositions of neurons.
-        :param neuron_activations: Dictionary mapping neuron index to activation tensor
-        :param norm: Tensor of graph sizes
-        :param inds: Tensor of graph indices
-        :param neuron_pair: Tuple of neuron indices
-        """
-        device = torch.device('cuda:0')
-        activations = neuron_activations[0].to(device)
-        inds = inds.to(device)
-        n_nodes = activations.shape[0]
-
-        neuron_idx = neuron_pair
-
-        if neuron_idx not in self.neuron_concept_tracker:
-            self.neuron_concept_tracker[neuron_idx] = []
-            for _, [concept, _] in self.base_concepts.items():
-                self.neuron_concept_tracker[neuron_idx].append([None, concept])
-
-        unscored_concepts = self.get_unscored(neuron_idx)
-        n_concepts = len(unscored_concepts)
-
-        if n_concepts == 0:
-            return
-
-        targets = self.truth(neuron_idx, unscored_concepts)
-        activations = activations.repeat(n_concepts, 1)
-
-        assert activations.shape[0] == n_concepts and activations.shape[1] == n_nodes
-        assert targets.shape[0] == n_concepts and targets.shape[1] == n_nodes
-
-        err = torch.zeros(n_concepts).to(device)
-        targets = targets.to(device)
-
-        [alpha, beta, gamma] = self.omega
-
-        final_thresholds = torch.zeros(activations.shape[0], device=device)
-
-        for thresh in np.arange(alpha, beta) / gamma * activations.max().item():
-            acts = activations > thresh
-
-            msk = torch.zeros(activations.shape, device=device)
-            nonzids = acts.nonzero().T
-            if nonzids.shape[0] > 0:
-                msk[nonzids[0], nonzids[1]] = 1
-            act_th = activations * msk
-
-            inters = torch_scatter.scatter_add(torch.logical_and(acts, targets).float(), inds)
-            unions = torch_scatter.scatter_add(torch.logical_or(acts, targets).float(), inds)
-
-            framed = torch_scatter.scatter_add(torch.logical_and(acts, targets).float() * act_th, inds)
-            signal = torch_scatter.scatter_add(act_th, inds)
-
-            frac = torch.nan_to_num((inters / unions) * (framed / signal), 0, 0, 0)
-
-            denom = torch.logical_or(inters != 0, unions != 0).sum(dim=1)
-            e_ = frac.sum(dim=1) / denom
-            final_thresholds[torch.where(e_ > err)] = thresh
-            err = torch.maximum(err, e_)
-
-        assert err.shape[0] == n_concepts and len(err.shape) == 1
-
-        for i, concept_idx in enumerate(unscored_concepts):
-            self.neuron_concept_tracker[neuron_idx][concept_idx][0] = (err[i].item(), final_thresholds[i].item())
-
-        del targets
-
-        ret_dic = {}
-        for [val, concept] in self.neuron_concept_tracker[neuron_idx]:
-            ret_dic[concept.name()] = (concept, val[0], val[1])
-
-        return ret_dic
+        print('Constructing base concepts')
 
         if task == 'MUTAG':
             concs = [
@@ -361,6 +287,80 @@ class ConceptSet:
 
         # for name, [obj, _] in self.base_concepts.items():
         #     print(f'{name}  {obj.concept_groups()}')
+
+    def match_superposition(self, neuron_activations, norm, inds, neuron_pair):
+        """
+        Updates scores for superpositions of neurons.
+        :param neuron_activations: Dictionary mapping neuron index to activation tensor
+        :param norm: Tensor of graph sizes
+        :param inds: Tensor of graph indices
+        :param neuron_pair: Tuple of neuron indices
+        """
+        device = torch.device('cuda:0')
+        activations = neuron_activations[0].to(device)
+        inds = inds.to(device)
+        n_nodes = activations.shape[0]
+
+        neuron_idx = neuron_pair
+
+        if neuron_idx not in self.neuron_concept_tracker:
+            self.neuron_concept_tracker[neuron_idx] = []
+            for _, [concept, _] in self.base_concepts.items():
+                self.neuron_concept_tracker[neuron_idx].append([None, concept])
+
+        unscored_concepts = self.get_unscored(neuron_idx)
+        n_concepts = len(unscored_concepts)
+
+        if n_concepts == 0:
+            return
+
+        targets = self.truth(neuron_idx, unscored_concepts)
+        activations = activations.repeat(n_concepts, 1)
+
+        assert activations.shape[0] == n_concepts and activations.shape[1] == n_nodes
+        assert targets.shape[0] == n_concepts and targets.shape[1] == n_nodes
+
+        err = torch.zeros(n_concepts).to(device)
+        targets = targets.to(device)
+
+        [alpha, beta, gamma] = self.omega
+
+        final_thresholds = torch.zeros(activations.shape[0], device=device)
+
+        for thresh in np.arange(alpha, beta) / gamma * activations.max().item():
+            acts = activations > thresh
+
+            msk = torch.zeros(activations.shape, device=device)
+            nonzids = acts.nonzero().T
+            if nonzids.shape[0] > 0:
+                msk[nonzids[0], nonzids[1]] = 1
+            act_th = activations * msk
+
+            inters = torch_scatter.scatter_add(torch.logical_and(acts, targets).float(), inds)
+            unions = torch_scatter.scatter_add(torch.logical_or(acts, targets).float(), inds)
+
+            framed = torch_scatter.scatter_add(torch.logical_and(acts, targets).float() * act_th, inds)
+            signal = torch_scatter.scatter_add(act_th, inds)
+
+            frac = torch.nan_to_num((inters / unions) * (framed / signal), 0, 0, 0)
+
+            denom = torch.logical_or(inters != 0, unions != 0).sum(dim=1)
+            e_ = frac.sum(dim=1) / denom
+            final_thresholds[torch.where(e_ > err)] = thresh
+            err = torch.maximum(err, e_)
+
+        assert err.shape[0] == n_concepts and len(err.shape) == 1
+
+        for i, concept_idx in enumerate(unscored_concepts):
+            self.neuron_concept_tracker[neuron_idx][concept_idx][0] = (err[i].item(), final_thresholds[i].item())
+
+        del targets
+
+        ret_dic = {}
+        for [val, concept] in self.neuron_concept_tracker[neuron_idx]:
+            ret_dic[concept.name()] = (concept, val[0], val[1])
+
+        return ret_dic
 
     def random_concept_set(self, n_concepts, max_length=3):
         cs = [v[0] for v in self.base_concepts.values()]
