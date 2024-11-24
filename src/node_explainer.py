@@ -229,7 +229,42 @@ class ClearGNN(ModelBase):
 
         if self.device:
             self.to(self.device)
+            
+    def superpose_neurons(self, neuron_activations, neuron_idxs):
+        '''
+        Pair the neurons and take the element-wise maximum activation between each pair.
+        If there's an odd neuron out, keep it as is.
+        Returns the new neuron_activations tensor and updated neuron_idxs list.
+        '''
+        num_neurons = neuron_activations.shape[0]
+        paired_neurons = []
+        updated_neuron_idxs = []
 
+        print(f'Number of neurons before superposition: {num_neurons}')
+
+        for i in range(0, num_neurons - 1, 2):
+            # Take the max activation between each pair
+            neuron_pair = torch.max(neuron_activations[i], neuron_activations[i + 1]).unsqueeze(0)
+            paired_neurons.append(neuron_pair)
+            # Combine the neuron indices into a tuple
+            updated_neuron_idxs.append((neuron_idxs[i].item(), neuron_idxs[i + 1].item()))
+            print(f'Paired neurons {neuron_idxs[i].item()} and {neuron_idxs[i + 1].item()}')
+
+        if num_neurons % 2 == 1:
+            # If there's an odd neuron out, keep it as is
+            paired_neurons.append(neuron_activations[-1].unsqueeze(0))
+            updated_neuron_idxs.append((neuron_idxs[-1].item(),))
+            print(f'Unpaired neuron {neuron_idxs[-1].item()} retained as is')
+
+        # Combine paired neurons into a new activation tensor
+        if paired_neurons:
+            neuron_activations = torch.cat(paired_neurons, dim=0)
+            print(f'Number of neurons after superposition: {neuron_activations.shape[0]}')
+
+        return neuron_activations, updated_neuron_idxs
+
+
+    
     def concept_search(self, task, dataset, depth=1, neuron_idxs=[], top=64, augment=True, omega=[10, 20, 20], level=1,superposition = False):
         assert depth >= 1
 
@@ -278,25 +313,11 @@ class ClearGNN(ModelBase):
         neuron_idxs = non_zero_neuron_idxs
         neuron_activations = neuron_activations.index_select(0, neuron_idxs[-top:])
         print (neuron_activations)
-                # **Superposition Step**
+
         if superposition:
             print('Applying superposition by pairing top neurons and taking max activation')
-            paired_neurons = []
-
-            for i in range(0, len(neuron_idxs) - 1, 2):
-                # Take the max activation between each pair
-                neuron_pair = torch.max(neuron_activations[i], neuron_activations[i + 1]).unsqueeze(0)
-                paired_neurons.append(neuron_pair)
-
-            if num_top_neurons % 2 == 1:
-                # If there's an odd neuron out, keep it as is
-                paired_neurons.append(neuron_activations[-1].unsqueeze(0))
-
-            # Combine paired neurons into a new activation tensor
-            if paired_neurons:
-                neuron_activations = torch.cat(paired_neurons, 0)
-                print(f'Number of neurons after superposition: {neuron_activations.shape[0]}')
-
+            neuron_activations, neuron_idxs = superpose_neurons(neuron_activations, neuron_idxs)
+            print(f'Number of neurons after superposition: {neuron_activations.shape[0]}')
         print('Performing search')
 
         for i in range(depth):
