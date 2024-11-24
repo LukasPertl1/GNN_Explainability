@@ -316,7 +316,7 @@ class ClearGNN(ModelBase):
 
         if superposition:
             print('Applying superposition by pairing top neurons and taking max activation')
-            neuron_activations, neuron_idxs = superpose_neurons(neuron_activations, neuron_idxs)
+            neuron_activations, neuron_idxs = self.superpose_neurons(neuron_activations, neuron_idxs)
             print(f'Number of neurons after superposition: {neuron_activations.shape[0]}')
         print('Performing search')
 
