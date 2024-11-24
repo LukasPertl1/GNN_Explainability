@@ -230,7 +230,7 @@ class ClearGNN(ModelBase):
         if self.device:
             self.to(self.device)
 
-    def concept_search(self, task, dataset, depth=1, neuron_idxs=[], top=5, augment=True, omega=[10, 20, 20], level=1):
+    def concept_search(self, task, dataset, depth=1, neuron_idxs=[], top=64, augment=True, omega=[10, 20, 20], level=1):
         assert depth >= 1
 
         if augment:
