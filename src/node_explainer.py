@@ -277,13 +277,12 @@ class ClearGNN(ModelBase):
         non_zero_neuron_idxs = torch.LongTensor(non_zero_neuron_idxs)
         neuron_idxs = non_zero_neuron_idxs
         neuron_activations = neuron_activations.index_select(0, neuron_idxs[-top:])
-        
+        print (neuron_activations)
                 # **Superposition Step**
         if superposition:
             print('Applying superposition by pairing top neurons and taking max activation')
             paired_neurons = []
 
-            # Handle both even and odd number of neurons
             for i in range(0, len(neuron_idxs) - 1, 2):
                 # Take the max activation between each pair
                 neuron_pair = torch.max(neuron_activations[i], neuron_activations[i + 1]).unsqueeze(0)
