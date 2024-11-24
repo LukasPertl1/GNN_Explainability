@@ -282,7 +282,6 @@ class ClearGNN(ModelBase):
         if superposition:
             print('Applying superposition by pairing top neurons and taking max activation')
             paired_neurons = []
-            num_top_neurons = top_neurons.shape[0]
 
             # Handle both even and odd number of neurons
             for i in range(0, len(neuron_idxs) - 1, 2):
