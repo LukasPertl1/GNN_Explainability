@@ -230,7 +230,7 @@ class ClearGNN(ModelBase):
         if self.device:
             self.to(self.device)
 
-    def concept_search(self, task, dataset, depth=1, neuron_idxs=[], top=64, augment=True, omega=[10, 20, 20], level=1):
+    def concept_search(self, task, dataset, depth=1, neuron_idxs=[], top=64, augment=True, omega=[10, 20, 20], level=1,superposition = False):
         assert depth >= 1
 
         if augment:
@@ -277,6 +277,27 @@ class ClearGNN(ModelBase):
         non_zero_neuron_idxs = torch.LongTensor(non_zero_neuron_idxs)
         neuron_idxs = non_zero_neuron_idxs
         neuron_activations = neuron_activations.index_select(0, neuron_idxs[-top:])
+        
+                # **Superposition Step**
+        if superposition:
+            print('Applying superposition by pairing top neurons and taking max activation')
+            paired_neurons = []
+            num_top_neurons = top_neurons.shape[0]
+
+            # Handle both even and odd number of neurons
+            for i in range(0, len(neuron_idxs) - 1, 2):
+                # Take the max activation between each pair
+                neuron_pair = torch.max(neuron_activations[i], neuron_activations[i + 1]).unsqueeze(0)
+                paired_neurons.append(neuron_pair)
+
+            if num_top_neurons % 2 == 1:
+                # If there's an odd neuron out, keep it as is
+                paired_neurons.append(neuron_activations[-1].unsqueeze(0))
+
+            # Combine paired neurons into a new activation tensor
+            if paired_neurons:
+                neuron_activations = torch.cat(paired_neurons, 0)
+                print(f'Number of neurons after superposition: {neuron_activations.shape[0]}')
 
         print('Performing search')
 
