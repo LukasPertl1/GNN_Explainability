@@ -272,7 +272,6 @@ class ClearGNN(ModelBase):
             print("Creating superpositions")
             neuron_activations, neuron_idxs, pairs = self.create_all_pairs(neuron_activations, neuron_idxs)
         else:               
-            neuron_activations = torch.cat(neuron_activations, 1)
             nrns_vals = (neuron_activations != 0).sum(axis=1)
             neuron_idxs = nrns_vals.argsort()
             non_zero_neuron_idxs = []
