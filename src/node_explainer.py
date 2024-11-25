@@ -343,6 +343,9 @@ class ClearGNN(ModelBase):
         
         # Generate all unique 2-combinations of neuron indices
         for (i, j) in combinations(range(num_neurons), 2):
+
+            neuron_idxs = torch.arange(neuron_activations.shape[0])
+            
             # Take the element-wise maximum activation between each pair (unsqueeze adds dimension so that can concatenate later)
             neuron_pair = torch.max(neuron_activations[i], neuron_activations[j]).unsqueeze(0)
             paired_neurons.append(neuron_pair)
