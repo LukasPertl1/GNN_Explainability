@@ -36,6 +36,7 @@ from typing import Optional, Tuple
 from concepts import ConceptSet, concepts_mutag, concepts_basic, concepts_mutagenicity
 from graph_utils import edge_index_to_tuples, add_edge
 from graph_utils import graph_to_mol
+from itertools import combinations
 
 THRESH = 0.01
 
