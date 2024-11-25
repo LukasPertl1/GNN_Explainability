@@ -262,6 +262,7 @@ class ClearGNN(ModelBase):
             feature_maps = self.partial_forward(graph.x.to(self.device), graph.edge_index.to(self.device),
                                                 ret_layer=self.n_layers - level).detach().cpu().T
             neuron_activations.append(feature_maps)
+            neuron_activations = torch.cat(neuron_activations, 1)
 
             graph_sizes.extend([graph.x.shape[0]] * graph.x.shape[0])
             graph_inds.extend([i] * graph.x.shape[0])
