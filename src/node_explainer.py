@@ -267,7 +267,7 @@ class ClearGNN(ModelBase):
             graph_inds.extend([i] * graph.x.shape[0])
 
         print('Keeping only top neurons')
-        if superposition = True:
+        if superposition == True:
             print("Creating superpositions")
             neuron_activations, neuron_idxs, pairs = self.create_all_pairs(neuron_activations, neuron_idxs)
         else:               
