@@ -262,16 +262,17 @@ class ClearGNN(ModelBase):
             feature_maps = self.partial_forward(graph.x.to(self.device), graph.edge_index.to(self.device),
                                                 ret_layer=self.n_layers - level).detach().cpu().T
             neuron_activations.append(feature_maps)
-            neuron_activations = torch.cat(neuron_activations, 1)
 
             graph_sizes.extend([graph.x.shape[0]] * graph.x.shape[0])
             graph_inds.extend([i] * graph.x.shape[0])
 
         print('Keeping only top neurons')
         if superposition == True:
+            neuron_activations = torch.cat(neuron_activations, 1)
             print("Creating superpositions")
             neuron_activations, neuron_idxs, pairs = self.create_all_pairs(neuron_activations, neuron_idxs)
-        else:               
+        else:
+            neuron_activations = torch.cat(neuron_activations, 1)
             nrns_vals = (neuron_activations != 0).sum(axis=1)
             neuron_idxs = nrns_vals.argsort()
             non_zero_neuron_idxs = []
