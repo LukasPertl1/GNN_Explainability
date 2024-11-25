@@ -267,17 +267,21 @@ class ClearGNN(ModelBase):
             graph_inds.extend([i] * graph.x.shape[0])
 
         print('Keeping only top neurons')
-        neuron_activations = torch.cat(neuron_activations, 1)
-        nrns_vals = (neuron_activations != 0).sum(axis=1)
-        neuron_idxs = nrns_vals.argsort()
-        non_zero_neuron_idxs = []
-        for idx in neuron_idxs:
-            if nrns_vals[idx] == 0:
-                continue
-            non_zero_neuron_idxs.append(idx)
-        non_zero_neuron_idxs = torch.LongTensor(non_zero_neuron_idxs)
-        neuron_idxs = non_zero_neuron_idxs
-        neuron_activations = neuron_activations.index_select(0, neuron_idxs[-top:])
+        if superposition = True:
+            print("Creating superpositions")
+            neuron_activations, neuron_idxs, pairs = self.create_all_pairs(neuron_activations, neuron_idxs)
+        else:               
+            neuron_activations = torch.cat(neuron_activations, 1)
+            nrns_vals = (neuron_activations != 0).sum(axis=1)
+            neuron_idxs = nrns_vals.argsort()
+            non_zero_neuron_idxs = []
+            for idx in neuron_idxs:
+                if nrns_vals[idx] == 0:
+                    continue
+                non_zero_neuron_idxs.append(idx)
+            non_zero_neuron_idxs = torch.LongTensor(non_zero_neuron_idxs)
+            neuron_idxs = non_zero_neuron_idxs
+            neuron_activations = neuron_activations.index_select(0, neuron_idxs[-top:])
 
         print('Performing search')
 
@@ -318,7 +322,76 @@ class ClearGNN(ModelBase):
             return SGConv(in_dim, out_dim)
         if self.conv_type == 'HAN':
             return HANConv(in_dim, out_dim)
+            
+    def create_all_pairs(self, neuron_activations, neuron_idxs):
+        '''        
+        Parameters:
+            neuron_activations (torch.Tensor): Tensor of shape [num_neurons, num_nodes]
+            neuron_idxs (torch.Tensor): Tensor of shape [num_neurons]
+        
+        Returns:
+            neuron_activations (torch.Tensor): Updated tensor after creating all pairs
+            updated_neuron_idxs (List[Tuple[int, int]]): List of tuples representing paired neuron indices
+        '''
+        num_neurons = neuron_activations.shape[0]
+        paired_neurons = []
+        updated_neuron_idxs = []
+        
+        print(f'\nCreating all possible pairs from {num_neurons} neurons.')
+        
+        # Generate all unique 2-combinations of neuron indices
+        for (i, j) in combinations(range(num_neurons), 2):
+            # Take the element-wise maximum activation between each pair (unsqueeze adds dimension so that can concatenate later)
+            neuron_pair = torch.max(neuron_activations[i], neuron_activations[j]).unsqueeze(0)
+            paired_neurons.append(neuron_pair)
+            updated_neuron_idxs.append((neuron_idxs[i].item(), neuron_idxs[j].item()))
+            print(f'Created pair: Neuron {neuron_idxs[i].item()} and Neuron {neuron_idxs[j].item()}')
+        
+        # Combine all paired neurons into a new activation tensor (if just checks not empty)
+        if paired_neurons:
+            neuron_activations = torch.cat(paired_neurons, dim=0)
+            print(f'Number of neurons after creating all pairs: {neuron_activations.shape[0]}')
+        
+        top_neuron_activations, top_neuron_idxs, neuron_idxs  = self.select_top_neurons(neuron_activations, updated_neuron_idxs)
+        return top_neuron_activations, top_neuron_idxs, neuron_idxs
 
+    
+    def select_top_neurons(self, neuron_activations, neuron_idxs, top=4):
+        '''
+        Select the top 'top' neurons based on the sum of their activations.
+        
+        Parameters:
+            neuron_activations (torch.Tensor): Tensor of shape [num_neurons, num_nodes]
+            neuron_idxs (torch.Tensor): Tensor of shape [num_neurons]
+            top (int): Number of top neurons to select
+        
+        Returns:
+            top_neuron_activations (torch.Tensor): Tensor of top neuron activations
+            top_neuron_idxs (torch.Tensor): Tensor of top neuron indices
+        '''
+        # Calculate the sum of activations for each neuron
+        activation_sums = neuron_activations.sum(dim=1)
+        print("\nActivation Sums for Each Neuron:")
+        print(activation_sums)
+        print(neuron_idxs)
+        
+        # Sort neuron indices based on activation sums in ascending order
+        neuron_idxs_sorted = activation_sums.argsort()
+        print("\nSorted Neuron Indices (Ascending Order of Activation Sums):")
+        print(neuron_idxs_sorted)
+        
+        # Select the top 'top' neurons with the highest activation sums
+        top_neuron_idxs = neuron_idxs_sorted[-top:]
+        print(f"\nTop {top} Neuron Indices:")
+        print(f' The top pairs {neuron_idxs} with corresponding index {top_neuron_idxs}')
+        
+        # Select the corresponding neuron activations
+        top_neuron_activations = neuron_activations.index_select(0, top_neuron_idxs)
+        print("\nSelected Neuron Activations:")
+        print(top_neuron_activations)
+        
+        return top_neuron_activations, top_neuron_idxs , neuron_idxs
+    
     def bottleneck(self, neurons):
         self.bottleneck_concepts = neurons
         self.lin1 = Linear(len(self.bottleneck_concepts), self.n_classes).to(self.device)
